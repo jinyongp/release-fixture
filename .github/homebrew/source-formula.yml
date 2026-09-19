@@ -1,0 +1,14 @@
+desc: Deterministic source archive fixture for Homebrew automation integration tests
+homepage: https://github.com/jinyongp/release-fixture
+license: MIT
+
+install: |
+  target = bin/"release-source-fixture"
+  target.write <<~SH
+    #!/usr/bin/env sh
+    echo "release-source-fixture #{version}"
+  SH
+  target.chmod 0755
+
+test: |
+  assert_match "release-source-fixture #{version}", shell_output("#{bin}/release-source-fixture")

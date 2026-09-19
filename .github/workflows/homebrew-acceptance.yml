@@ -1,0 +1,27 @@
+name: Homebrew acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@35be652beb09d97010bfa595069684584b13854c # candidate v1.0.0
+    with:
+      formula: release-source-fixture
+      tap-repository: jinyongp/homebrew-tap-fixture
+      spec-path: .github/homebrew/source-formula.yml
+
+  publish:
+    needs: check
+    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@35be652beb09d97010bfa595069684584b13854c # candidate v1.0.0
+    with:
+      formula: release-source-fixture
+      ref: ${{ github.sha }}
+      version: 1.0.0
+      tap-repository: jinyongp/homebrew-tap-fixture
+      spec-path: .github/homebrew/source-formula.yml
+    secrets:
+      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}

@@ -47,7 +47,7 @@ jobs:
 
       - name: Publish fixture release
         id: publish
-        uses: jinyongp/release-actions@ef4985766b5f3c3591120c53115175e9818b442a # candidate v1.0.0
+        uses: jinyongp/release-actions@58ac5896b521c3f6a870f8193ab924c0beb58809 # candidate v1.0.0
         with:
           tag: ${{ steps.release.outputs.tag }}
           commit: ${{ steps.release.outputs.commit }}

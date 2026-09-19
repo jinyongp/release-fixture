@@ -45,12 +45,14 @@ jobs:
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
   check-source:
+    needs: resolve
     uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
     with:
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/source-formula.yml
 
   check-release:
+    needs: resolve
     uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
     with:
       tap-repository: jinyongp/homebrew-tap-fixture

@@ -1,0 +1,64 @@
+name: release fixture
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing fixture tag to publish.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-fixture-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve fixture tag
+        id: release
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "fixture tag must be stable SemVer vX.Y.Z: $TAG" >&2
+            exit 1
+          fi
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          COMMIT="$(git rev-parse "$TAG^{commit}")"
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+            echo "commit=$COMMIT"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build deterministic fixture assets
+        run: python3 scripts/build-fixtures.py "${{ steps.release.outputs.version }}"
+
+      - name: Publish fixture release
+        id: publish
+        uses: jinyongp/release-actions@ef4985766b5f3c3591120c53115175e9818b442a # candidate v1.0.0
+        with:
+          tag: ${{ steps.release.outputs.tag }}
+          commit: ${{ steps.release.outputs.commit }}
+          assets: dist/release-fixture_*.tar.gz
+          title: ${{ steps.release.outputs.tag }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Release fixture"
+            echo ""
+            echo "- state: ${{ steps.publish.outputs.state }}"
+            echo "- release: ${{ steps.publish.outputs.release-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

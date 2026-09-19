@@ -33,9 +33,10 @@ Release is being validated, and pass that tag as the workflow input. This keeps 
 pull-request-style check source and publish source on one immutable commit. The workflow:
 
 1. runs both public `homebrew-actions/check.yml` paths;
-2. publishes the release-backed Formula with `homebrew-actions/publish.yml`;
+2. publishes both source-archive and GitHub Release Formulae with the public
+   `homebrew-actions/publish.yml`;
 3. writes only to `jinyongp/homebrew-tap-fixture`;
-4. verifies reusable-workflow outputs and the resulting Formula state.
+4. verifies reusable-workflow outputs and both resulting Formulae.
 
 Publishing requires an Actions secret named `HOMEBREW_TAP_DEPLOY_KEY` containing a
 write deploy key for `jinyongp/homebrew-tap-fixture`. No production tap credential

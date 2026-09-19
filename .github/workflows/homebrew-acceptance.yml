@@ -46,24 +46,36 @@ jobs:
 
   check-source:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@a49d6d340a8687e3289cbea11db899e180cac8ca
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ade0d1973f718aa8c954adfe402b9512ac657563
     with:
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/source-formula.yml
 
   check-release:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@a49d6d340a8687e3289cbea11db899e180cac8ca
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ade0d1973f718aa8c954adfe402b9512ac657563
     with:
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/formula.yml
 
-  publish:
+  publish-source:
     needs:
       - resolve
       - check-source
+    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@ade0d1973f718aa8c954adfe402b9512ac657563
+    with:
+      commit: ${{ needs.resolve.outputs.commit }}
+      version: ${{ needs.resolve.outputs.version }}
+      tap-repository: jinyongp/homebrew-tap-fixture
+      spec-path: .github/homebrew/source-formula.yml
+    secrets:
+      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+  publish-release:
+    needs:
+      - resolve
       - check-release
-    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@a49d6d340a8687e3289cbea11db899e180cac8ca
+    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@ade0d1973f718aa8c954adfe402b9512ac657563
     with:
       commit: ${{ needs.resolve.outputs.commit }}
       version: ${{ needs.resolve.outputs.version }}
@@ -75,23 +87,31 @@ jobs:
   verify:
     needs:
       - resolve
-      - publish
+      - publish-source
+      - publish-release
     runs-on: ubuntu-24.04
     steps:
       - name: Check reusable workflow outputs
         env:
-          FORMULA: ${{ needs.publish.outputs.formula }}
-          VERSION: ${{ needs.publish.outputs.version }}
-          STATE: ${{ needs.publish.outputs.state }}
+          SOURCE_FORMULA: ${{ needs.publish-source.outputs.formula }}
+          SOURCE_VERSION: ${{ needs.publish-source.outputs.version }}
+          SOURCE_STATE: ${{ needs.publish-source.outputs.state }}
+          RELEASE_FORMULA: ${{ needs.publish-release.outputs.formula }}
+          RELEASE_VERSION: ${{ needs.publish-release.outputs.version }}
+          RELEASE_STATE: ${{ needs.publish-release.outputs.state }}
           EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
-          [ "$FORMULA" = "release-fixture" ]
-          [ "$VERSION" = "$EXPECTED_VERSION" ]
-          case "$STATE" in
-            published|unchanged) ;;
-            *) echo "unexpected publish state: $STATE" >&2; exit 1 ;;
-          esac
+          [ "$SOURCE_FORMULA" = "release-source-fixture" ]
+          [ "$SOURCE_VERSION" = "$EXPECTED_VERSION" ]
+          [ "$RELEASE_FORMULA" = "release-fixture" ]
+          [ "$RELEASE_VERSION" = "$EXPECTED_VERSION" ]
+          for state in "$SOURCE_STATE" "$RELEASE_STATE"; do
+            case "$state" in
+              published|unchanged) ;;
+              *) echo "unexpected publish state: $state" >&2; exit 1 ;;
+            esac
+          done
 
       - name: Checkout destination tap
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,11 +120,17 @@ jobs:
           path: tap
           persist-credentials: false
 
-      - name: Verify published Formula
+      - name: Verify published Formulae
         env:
+          COMMIT: ${{ needs.resolve.outputs.commit }}
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
+
+          test -f tap/Formula/release-source-fixture.rb
+          grep -Fq 'class ReleaseSourceFixture < Formula' tap/Formula/release-source-fixture.rb
+          grep -Fq "/archive/$COMMIT.tar.gz" tap/Formula/release-source-fixture.rb
+
           test -f tap/Formula/release-fixture.rb
           grep -Fq 'class ReleaseFixture < Formula' tap/Formula/release-fixture.rb
           grep -Fq "/releases/download/v$VERSION/" tap/Formula/release-fixture.rb

@@ -43,6 +43,13 @@ def main() -> None:
     assert first == second
     assert len(first) == len(PLATFORMS)
 
+    specs = {
+        ".github/homebrew/formula.yml": "release-fixture",
+        ".github/homebrew/source-formula.yml": "release-source-fixture",
+    }
+    for path, name in specs.items():
+        assert (ROOT / path).read_text().startswith(f"name: {name}\n")
+
     for platform in PLATFORMS:
         filename = f"release-fixture_{platform.replace('-', '_')}.tar.gz"
         verify_archive(filename, first[filename], version, platform)

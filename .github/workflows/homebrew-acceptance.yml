@@ -1,15 +1,108 @@
-name: Homebrew check acceptance
+name: Homebrew public API acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release-fixture tag to validate and publish to the fixture tap.
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@35be652beb09d97010bfa595069684584b13854c # candidate v1.0.0
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      version: ${{ steps.source.outputs.version }}
+    steps:
+      - name: Checkout fixture tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve source identity
+        id: source
+        env:
+          TAG: ${{ inputs.tag }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "fixture tag must be stable SemVer vX.Y.Z: $TAG" >&2
+            exit 1
+          fi
+          COMMIT="$(git rev-parse HEAD)"
+          if [ "$COMMIT" != "$EVENT_SHA" ]; then
+            echo "run this acceptance workflow from the same fixture tag: tag=$COMMIT event=$EVENT_SHA" >&2
+            exit 1
+          fi
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  check-source:
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
     with:
-      formula: release-source-fixture
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/source-formula.yml
+
+  check-release:
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
+    with:
+      tap-repository: jinyongp/homebrew-tap-fixture
+      spec-path: .github/homebrew/formula.yml
+
+  publish:
+    needs:
+      - resolve
+      - check-source
+      - check-release
+    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
+    with:
+      commit: ${{ needs.resolve.outputs.commit }}
+      version: ${{ needs.resolve.outputs.version }}
+      tap-repository: jinyongp/homebrew-tap-fixture
+      spec-path: .github/homebrew/formula.yml
+    secrets:
+      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+  verify:
+    needs:
+      - resolve
+      - publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check reusable workflow outputs
+        env:
+          FORMULA: ${{ needs.publish.outputs.formula }}
+          VERSION: ${{ needs.publish.outputs.version }}
+          STATE: ${{ needs.publish.outputs.state }}
+          EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          [ "$FORMULA" = "release-fixture" ]
+          [ "$VERSION" = "$EXPECTED_VERSION" ]
+          case "$STATE" in
+            published|unchanged) ;;
+            *) echo "unexpected publish state: $STATE" >&2; exit 1 ;;
+          esac
+
+      - name: Checkout destination tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: jinyongp/homebrew-tap-fixture
+          path: tap
+          persist-credentials: false
+
+      - name: Verify published Formula
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -f tap/Formula/release-fixture.rb
+          grep -Fq 'class ReleaseFixture < Formula' tap/Formula/release-fixture.rb
+          grep -Fq "/releases/download/v$VERSION/" tap/Formula/release-fixture.rb

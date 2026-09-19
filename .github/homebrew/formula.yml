@@ -1,3 +1,4 @@
+name: release-fixture
 desc: Deterministic release asset fixture for automation integration tests
 homepage: https://github.com/jinyongp/release-fixture
 license: MIT

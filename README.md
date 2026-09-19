@@ -1,20 +1,50 @@
 # release-fixture
 
-Deterministic test-only release source for shared GitHub Release and Homebrew automation.
+Deterministic product/source fixture for shared release and Homebrew automation.
 
-The repository intentionally owns fixture tags and immutable GitHub Releases so reusable
-automation repositories do not mix product tags with test-fixture tag families.
+This repository behaves like a small product repository. It owns fixture source,
+versioned Git tags, immutable GitHub Releases, release assets, and Homebrew specs. Shared
+automation is tested from here through its public interfaces rather than by importing
+implementation files.
 
-`scripts/build-fixtures.py` creates byte-identical archives for:
+## Release fixture
 
-- macOS arm64
-- macOS x86_64
-- Linux arm64
-- Linux x86_64
+`scripts/build-fixtures.py` produces byte-identical archives for:
 
-Each archive contains an executable `release-fixture` script. The declarative Homebrew
-spec under `.github/homebrew/formula.yml` consumes the same assets for native
-integration validation.
+- macOS arm64;
+- macOS x86_64;
+- Linux arm64;
+- Linux x86_64.
 
-The release workflow is operator-triggered and publishes only an existing `vX.Y.Z`
-fixture tag.
+Each archive contains an executable `release-fixture` command.
+
+The `release fixture` workflow publishes an existing stable `vX.Y.Z` tag with
+`release-actions`. It does not implement GitHub Release lifecycle logic itself.
+
+## Homebrew acceptance
+
+Two specs exercise the public Homebrew workflows:
+
+- `.github/homebrew/source-formula.yml`: source-archive validation;
+- `.github/homebrew/formula.yml`: GitHub Release asset validation and publishing.
+
+Run `Homebrew public API acceptance` from the same fixture tag whose immutable GitHub
+Release is being validated, and pass that tag as the workflow input. This keeps the
+pull-request-style check source and publish source on one immutable commit. The workflow:
+
+1. runs both public `homebrew-actions/check.yml` paths;
+2. publishes the release-backed Formula with `homebrew-actions/publish.yml`;
+3. writes only to `jinyongp/homebrew-tap-fixture`;
+4. verifies reusable-workflow outputs and the resulting Formula state.
+
+Publishing requires an Actions secret named `HOMEBREW_TAP_DEPLOY_KEY` containing a
+write deploy key for `jinyongp/homebrew-tap-fixture`. No production tap credential
+belongs in this repository.
+
+## Local validation
+
+```sh
+python3 test/fixtures.py
+```
+
+CI also lints all fixture workflows.

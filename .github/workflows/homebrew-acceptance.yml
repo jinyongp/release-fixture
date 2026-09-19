@@ -46,14 +46,14 @@ jobs:
 
   check-source:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ba85bf63b83afde5bd81a27b296058838b2940a3
     with:
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/source-formula.yml
 
   check-release:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
+    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ba85bf63b83afde5bd81a27b296058838b2940a3
     with:
       tap-repository: jinyongp/homebrew-tap-fixture
       spec-path: .github/homebrew/formula.yml
@@ -63,7 +63,7 @@ jobs:
       - resolve
       - check-source
       - check-release
-    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@cbd53ea8aadc020ce68fafa7147aa72de34c20f4
+    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@ba85bf63b83afde5bd81a27b296058838b2940a3
     with:
       commit: ${{ needs.resolve.outputs.commit }}
       version: ${{ needs.resolve.outputs.version }}

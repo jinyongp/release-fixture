@@ -1,6 +1,6 @@
 name: release-source-fixture
 desc: Deterministic source archive fixture for Homebrew automation integration tests
-homepage: https://github.com/jinyongp/release-fixture
+homepage: https://github.com/releaseway/release-fixture
 license: MIT
 
 install: |

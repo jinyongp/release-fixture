@@ -35,12 +35,17 @@ pull-request-style check source and publish source on one immutable commit. The 
 1. runs both public `homebrew-actions/check.yml` paths;
 2. publishes both source-archive and GitHub Release Formulae with the public
    `homebrew-actions/publish.yml`;
-3. writes only to `jinyongp/homebrew-tap-fixture`;
+3. writes to the selected allowlisted test tap;
 4. verifies reusable-workflow outputs and both resulting Formulae.
 
 Publishing requires an Actions secret named `HOMEBREW_TAP_DEPLOY_KEY` containing a
-write deploy key for `jinyongp/homebrew-tap-fixture`. No production tap credential
+write deploy key for `releaseway/homebrew-tap-fixture`. No production tap credential
 belongs in this repository.
+
+The default destination is `releaseway/homebrew-tap-fixture`. Starter acceptance can
+select `releaseway/homebrew-starter-smoke` with the `STARTER_TAP_DEPLOY_KEY` secret.
+Only these matching test tap/credential pairs are accepted. The smoke tap is
+temporary; its repository and credential are removed after acceptance.
 
 ## Local validation
 

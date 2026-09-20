@@ -8,6 +8,21 @@ on:
         required: true
         type: string
 
+      tap-repository:
+        description: Test destination tap.
+        type: choice
+        default: releaseway/homebrew-tap-fixture
+        options:
+          - releaseway/homebrew-tap-fixture
+          - releaseway/homebrew-starter-smoke
+      tap-secret:
+        description: Test destination deploy-key secret.
+        type: choice
+        default: HOMEBREW_TAP_DEPLOY_KEY
+        options:
+          - HOMEBREW_TAP_DEPLOY_KEY
+          - STARTER_TAP_DEPLOY_KEY
+
 permissions:
   contents: read
 
@@ -30,12 +45,18 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           EVENT_SHA: ${{ github.sha }}
+          TAP_REPOSITORY: ${{ inputs.tap-repository }}
+          TAP_SECRET: ${{ inputs.tap-secret }}
         run: |
           set -euo pipefail
           if ! [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "fixture tag must be stable SemVer vX.Y.Z: $TAG" >&2
             exit 1
           fi
+          case "$TAP_REPOSITORY:$TAP_SECRET" in
+            releaseway/homebrew-tap-fixture:HOMEBREW_TAP_DEPLOY_KEY|releaseway/homebrew-starter-smoke:STARTER_TAP_DEPLOY_KEY) ;;
+            *) echo "unsupported fixture tap or credential" >&2; exit 1 ;;
+          esac
           COMMIT="$(git rev-parse HEAD)"
           if [ "$COMMIT" != "$EVENT_SHA" ]; then
             echo "run this acceptance workflow from the same fixture tag: tag=$COMMIT event=$EVENT_SHA" >&2
@@ -46,43 +67,43 @@ jobs:
 
   check-source:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ade0d1973f718aa8c954adfe402b9512ac657563 # v2.0.0
+    uses: releaseway/homebrew-actions/.github/workflows/check.yml@c035d14050bca1e2028a6368823797d36c9cdbc5 # v0.1.0
     with:
-      tap-repository: jinyongp/homebrew-tap-fixture
+      tap-repository: ${{ inputs.tap-repository }}
       spec-path: .github/homebrew/source-formula.yml
 
   check-release:
     needs: resolve
-    uses: jinyongp/homebrew-actions/.github/workflows/check.yml@ade0d1973f718aa8c954adfe402b9512ac657563 # v2.0.0
+    uses: releaseway/homebrew-actions/.github/workflows/check.yml@c035d14050bca1e2028a6368823797d36c9cdbc5 # v0.1.0
     with:
-      tap-repository: jinyongp/homebrew-tap-fixture
+      tap-repository: ${{ inputs.tap-repository }}
       spec-path: .github/homebrew/formula.yml
 
   publish-source:
     needs:
       - resolve
       - check-source
-    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@ade0d1973f718aa8c954adfe402b9512ac657563 # v2.0.0
+    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@c035d14050bca1e2028a6368823797d36c9cdbc5 # v0.1.0
     with:
       commit: ${{ needs.resolve.outputs.commit }}
       version: ${{ needs.resolve.outputs.version }}
-      tap-repository: jinyongp/homebrew-tap-fixture
+      tap-repository: ${{ inputs.tap-repository }}
       spec-path: .github/homebrew/source-formula.yml
     secrets:
-      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+      tap_deploy_key: ${{ secrets[inputs.tap-secret] }}
 
   publish-release:
     needs:
       - resolve
       - check-release
-    uses: jinyongp/homebrew-actions/.github/workflows/publish.yml@ade0d1973f718aa8c954adfe402b9512ac657563 # v2.0.0
+    uses: releaseway/homebrew-actions/.github/workflows/publish.yml@c035d14050bca1e2028a6368823797d36c9cdbc5 # v0.1.0
     with:
       commit: ${{ needs.resolve.outputs.commit }}
       version: ${{ needs.resolve.outputs.version }}
-      tap-repository: jinyongp/homebrew-tap-fixture
+      tap-repository: ${{ inputs.tap-repository }}
       spec-path: .github/homebrew/formula.yml
     secrets:
-      tap_deploy_key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+      tap_deploy_key: ${{ secrets[inputs.tap-secret] }}
 
   verify:
     needs:
@@ -116,7 +137,7 @@ jobs:
       - name: Checkout destination tap
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: jinyongp/homebrew-tap-fixture
+          repository: ${{ inputs.tap-repository }}
           path: tap
           persist-credentials: false
 
